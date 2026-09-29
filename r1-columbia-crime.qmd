@@ -130,14 +130,16 @@ crime |> ______
 ```
 
 ::: {.hint exercise="ex_timeframe"}
-`summarise()` with `min()` and `max()` gives you both ends in one step.
+Look at the `date` column with `glimpse()`: it's text, like "Jul 2026". Sort the data with `arrange()` by `year` and `month`, then find the first and last `date`.
 :::
 
 ::: {.solution exercise="ex_timeframe"}
 ```{webr}
 #| exercise: ex_timeframe
 #| solution: true
-crime |> summarise(earliest = min(date), latest = max(date))
+crime |>
+  arrange(year, month) |>
+  summarise(earliest = first(date), latest = last(date))
 ```
 :::
 
@@ -145,12 +147,19 @@ crime |> summarise(earliest = min(date), latest = max(date))
 #| exercise: ex_timeframe
 #| check: true
 gradethis::grade_this({
+  in_order <- crime |> arrange(year, month)
+  want <- c(first(in_order$date), last(in_order$date))
   shown <- unlist(lapply(.result, as.character))
-  want <- as.character(c(min(crime$date), max(crime$date)))
-  if (!all(want %in% shown)) {
-    fail("Your output should show both the earliest and the latest date. Try `summarise()` with `min()` and `max()`.")
+  if (all(want %in% shown)) {
+    pass_with_tip("Right: the data runs from {want[1]} to {want[2]}.", .user_code)
   }
-  pass_with_tip("Right: that's the span of the data.", .user_code)
+  if (grepl("\\b(min|max)\\(\\s*date", .user_code)) {
+    fail("Careful: `date` is stored as text, so `min()` and `max()` sort it alphabetically (\"Apr\" comes before \"Jan\"). Use the numeric `year` and `month` columns to put the rows in order.")
+  }
+  if (all(c(min(crime$year), max(crime$year)) %in% suppressWarnings(as.numeric(shown)))) {
+    fail("You found the right years. Now find the months too: the first and last years may not be complete.")
+  }
+  fail("Your output should show both the earliest and the latest date. Try sorting by `year` and `month` with `arrange()`.")
 })
 ```
 
@@ -171,7 +180,7 @@ Each row is one kind of crime in one month, so you need to add up `crimes` for e
 #| exercise: ex_common
 #| solution: true
 crime |>
-  group_by(offense) |>
+  group_by(offense_type) |>
   summarise(total = sum(crimes)) |>
   arrange(desc(total))
 ```
@@ -189,10 +198,10 @@ gradethis::grade_this({
   }
   top <- .solution[1, ]
   first_row <- as.character(unlist(.result[1, ]))
-  if (!(top$offense %in% first_row)) {
+  if (!(top$offense_type %in% first_row)) {
     fail("The most common crime should be in the first row. Did you `arrange(desc(...))` by the total?")
   }
-  pass_with_tip("Yes: {top$offense} is the most common crime in the data.", .user_code)
+  pass_with_tip("Yes: {top$offense_type} is the most common crime in the data.", .user_code)
 })
 ```
 
@@ -331,7 +340,7 @@ Start from your Question 5 code, and add a `filter()` step before grouping.
 #| exercise: ex_person
 #| solution: true
 crime |>
-  filter(category == "Crimes Against Person") |>
+  filter(offense_category == "Crimes Against Person") |>
   group_by(year) |>
   summarise(total = sum(crimes))
 ```
@@ -346,7 +355,7 @@ gradethis::grade_this({
     fail("Those are totals for all crimes. Add a `filter()` step to keep only \"Crimes Against Person\".")
   }
   if (is.data.frame(.result) && nrow(.result) == 0) {
-    fail("Your filter matched no rows. Check the exact spelling and capitalization with `distinct(crime, category)`.")
+    fail("Your filter matched no rows. Check the exact spelling and capitalization with `distinct(crime, offense_category)`.")
   }
   if (!has_values(.result, .solution$total)) {
     fail("Not quite. Filter for \"Crimes Against Person\", then group by `year` and `sum(crimes)`.")
