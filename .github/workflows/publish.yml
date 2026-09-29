@@ -1,0 +1,77 @@
+name: Build and publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 11 * * 1" # Mondays, to pick up changes to the Google Sheet
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  # Published Google Sheet used by Exercise R1. It is downloaded at build time and served
+  # alongside the page, so students' browsers never have to reach Google directly.
+  CRIME_CSV_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSk5s34OmNfj_-euF9MhAxmNfw719811Ohz4150yyBtvdiB1TtsL5tQpHEgHOdTlhWsB_xhGk7CPGcR/pub?gid=0&single=true&output=csv"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download data
+        run: |
+          mkdir -p data
+          if curl -fsSL "$CRIME_CSV_URL" -o data/crime.new.csv; then
+            mv data/crime.new.csv data/crime.csv
+          elif [ -f data/crime.csv ]; then
+            echo "::warning::Could not download the Google Sheet; using the copy in the repo."
+          else
+            echo "::error::Could not download the Google Sheet and there is no data/crime.csv in the repo."
+            exit 1
+          fi
+          echo "Rows (including header): $(wc -l < data/crime.csv)"
+          head -n 5 data/crime.csv
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install R packages for checks
+        run: |
+          install.packages(c("dplyr", "readr", "yaml", "glue"))
+          install.packages("gradethis", repos = c("https://rstudio.r-universe.dev", getOption("repos")))
+        shell: Rscript {0}
+
+      - name: Show the data's columns
+        run: Rscript -e 'dplyr::glimpse(readr::read_csv("data/crime.csv", show_col_types = FALSE))'
+
+      - name: Check every solution passes its own grader
+        run: Rscript tests/check-solutions.R
+
+      - uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Render site
+        run: quarto render
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

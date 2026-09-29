@@ -1,0 +1,18 @@
+project:
+  type: website
+  output-dir: _site
+  render:
+    - index.qmd
+    - r1-columbia-crime.qmd
+
+website:
+  title: "R practice"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Exercises
+
+format:
+  live-html:
+    theme: cosmo
+    toc: true

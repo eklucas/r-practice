@@ -1,0 +1,45 @@
+<!-- Shared feedback helpers for every exercise page. Include this after _gradethis.qmd. -->
+
+```{webr}
+#| edit: false
+#| output: false
+#| include: false
+
+# Tips on tidyverse style. Returns a sentence, or NULL when there is nothing to say.
+# Checks call this and add the tip to their feedback, so students hear it even when the answer is right.
+style_tip <- function(code) {
+  code <- paste(code, collapse = "\n")
+  has <- function(pattern) grepl(pattern, code, perl = TRUE)
+  if (has("%>%")) {
+    return("Tip: this class uses the native pipe `|>` rather than `%>%`. They work the same here.")
+  }
+  if (has("\\w+\\$\\w+")) {
+    return("Tip: instead of `data$column`, try working inside a pipeline, e.g. `crime |> summarise(...)` or `crime |> pull(column)`.")
+  }
+  if (has("\\[[^\\]]*,")) {
+    return("Tip: square-bracket indexing like `crime[rows, cols]` works, but `filter()` and `select()` are easier to read.")
+  }
+  if (has("\\b(aggregate|tapply|subset)\\(")) {
+    return("Tip: `group_by()` plus `summarise()` is the tidyverse way to do this, and reads more clearly.")
+  }
+  NULL
+}
+
+# Pass with an optional style tip appended. `{...}` in `msg` is filled in from the check's variables.
+pass_with_tip <- function(msg, code, env = parent.frame()) {
+  msg <- glue::glue(msg, .envir = env)
+  tip <- style_tip(code)
+  gradethis::pass(if (is.null(tip)) msg else paste(msg, tip), env = env)
+}
+
+# TRUE when every value in `target` shows up in some numeric column of `res`.
+# Lets students name their summary columns whatever they like.
+has_values <- function(res, target) {
+  if (!is.data.frame(res)) return(FALSE)
+  target <- sort(round(as.numeric(target), 4))
+  any(vapply(res, function(col) {
+    is.numeric(col) && length(col) == length(target) &&
+      isTRUE(all.equal(sort(round(col, 4)), target))
+  }, logical(1)))
+}
+```

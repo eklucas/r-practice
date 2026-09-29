@@ -1,0 +1,14 @@
+---
+title: "R practice exercises"
+format: html
+---
+
+Practice problems for data journalism in R. Everything runs in your web browser: there is nothing to install.
+
+Each exercise box has **Run Code** and **Submit Answer** buttons. Submit to get instant feedback, including tips on writing clean tidyverse code. Stuck? Open the **Hint** or **Solution** under a question.
+
+The first time a page loads, R and its packages download into your browser. That can take 10 to 30 seconds, so give it a moment.
+
+## Exercises
+
+- [Exercise R1: basic functions in R (Columbia crime data)](r1-columbia-crime.qmd)

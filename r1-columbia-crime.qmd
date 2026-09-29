@@ -1,0 +1,360 @@
+---
+title: "Exercise R1: basic functions in R"
+subtitle: "Crime in Columbia, Mo."
+format: live-html
+engine: markdown
+resources:
+  - data/crime.csv
+webr:
+  packages:
+    - dplyr
+    - readr
+---
+
+{{< include ./_extensions/r-wasm/live/_gradethis.qmd >}}
+{{< include ./_helpers.qmd >}}
+
+```{webr}
+#| setup: true
+#| exercise:
+#|   - ex_import
+#|   - ex_explore
+#|   - ex_timeframe
+#|   - ex_common
+#|   - ex_top_rate
+#|   - ex_all_top_rate
+#|   - ex_yearly
+#|   - ex_person
+library(dplyr)
+library(readr)
+crime <- read_csv("data/crime.csv", show_col_types = FALSE)
+```
+
+In this exercise you'll look at data on crime in Columbia and answer a few questions. Write code in each box, click **Run Code** to see what it does, and **Submit Answer** when you think you have it. You'll get feedback right away, including tips on writing clean code.
+
+## About the data
+
+The file contains numbers of crimes reported by the Columbia Police Department. The data comes from the Missouri State Highway Patrol, which collects data from local police departments and reports it up to the FBI. It follows the FBI's "NIBRS" classifications, and may not exactly match what CPD reports at the local level. It has been cleaned and reshaped from its original format to make it easier to use.
+
+The column `crimes` gives the total crime count; `clearances` is how many of those crimes were "solved" (arrests were made, which does not reflect court convictions); `rate` is the percent of crimes that were cleared.
+
+## Import the data
+
+Use `read_csv()` to import `data/crime.csv` and save it as `crime`. (The tidyverse packages you need are already loaded.)
+
+```{webr}
+#| exercise: ex_import
+crime <- ______
+```
+
+::: {.hint exercise="ex_import"}
+`read_csv()` takes the path to the file in quotes: `read_csv("data/crime.csv")`.
+:::
+
+::: {.solution exercise="ex_import"}
+```{webr}
+#| exercise: ex_import
+#| solution: true
+crime <- read_csv("data/crime.csv")
+```
+:::
+
+```{webr}
+#| exercise: ex_import
+#| check: true
+gradethis::grade_this({
+  if (!grepl("read_csv(", .user_code, fixed = TRUE)) {
+    fail("Use `read_csv()` from readr to import the file.")
+  }
+  if (!grepl("crime\\s*(<-|=)", .user_code)) {
+    fail("Save the result with `crime <- read_csv(...)` so you can use it later.")
+  }
+  pass_with_tip("Imported! You'll use `crime` for the rest of the exercise.", .user_code)
+})
+```
+
+## Get to know the data
+
+Before answering questions, always ask: How many rows are there? What is one row? What's in every column? Write code that helps you answer those. `glimpse()` is a good place to start.
+
+```{webr}
+#| exercise: ex_explore
+```
+
+::: {.hint exercise="ex_explore"}
+Try `glimpse(crime)`, or `nrow(crime)` for just the row count.
+:::
+
+::: {.solution exercise="ex_explore"}
+```{webr}
+#| exercise: ex_explore
+#| solution: true
+glimpse(crime)
+```
+:::
+
+```{webr}
+#| exercise: ex_explore
+#| check: true
+gradethis::grade_this({
+  if (!grepl("\\b(glimpse|nrow|dim|str|head|summary|View|names|colnames|distinct|count)\\(", .user_code)) {
+    fail("Try a function that describes the data, like `glimpse(crime)` or `nrow(crime)`.")
+  }
+  pass_with_tip("Good. Before moving on, make sure you can say in your own words what one row represents.", .user_code)
+})
+```
+
+::: {.callout-note appearance="simple"}
+**Your notes:** How many rows? What is one row? What's in each column?
+:::
+
+## Example question
+
+Q: What is the population of Columbia according to the most recent year of this data?
+
+```{webr}
+#| edit: false
+library(dplyr)
+library(readr)
+crime <- read_csv("data/crime.csv", show_col_types = FALSE)
+crime |> filter(year == max(year)) |> distinct(pop)
+```
+
+## Question 1
+
+What is the timeframe of this data? Find the earliest and latest dates.
+
+```{webr}
+#| exercise: ex_timeframe
+crime |> ______
+```
+
+::: {.hint exercise="ex_timeframe"}
+`summarise()` with `min()` and `max()` gives you both ends in one step.
+:::
+
+::: {.solution exercise="ex_timeframe"}
+```{webr}
+#| exercise: ex_timeframe
+#| solution: true
+crime |> summarise(earliest = min(date), latest = max(date))
+```
+:::
+
+```{webr}
+#| exercise: ex_timeframe
+#| check: true
+gradethis::grade_this({
+  shown <- unlist(lapply(.result, as.character))
+  want <- as.character(c(min(crime$date), max(crime$date)))
+  if (!all(want %in% shown)) {
+    fail("Your output should show both the earliest and the latest date. Try `summarise()` with `min()` and `max()`.")
+  }
+  pass_with_tip("Right: that's the span of the data.", .user_code)
+})
+```
+
+## Question 2
+
+Which crime is the most common? Show the crimes ranked from most to least common.
+
+```{webr}
+#| exercise: ex_common
+```
+
+::: {.hint exercise="ex_common"}
+Each row is one kind of crime in one month, so you need to add up `crimes` for each kind: `group_by()`, then `summarise()` with `sum()`, then `arrange(desc(...))`.
+:::
+
+::: {.solution exercise="ex_common"}
+```{webr}
+#| exercise: ex_common
+#| solution: true
+crime |>
+  group_by(offense) |>
+  summarise(total = sum(crimes)) |>
+  arrange(desc(total))
+```
+:::
+
+```{webr}
+#| exercise: ex_common
+#| check: true
+gradethis::grade_this({
+  if (grepl("\\b(count|n|tally)\\(", .user_code)) {
+    fail("Careful: `count()` and `n()` count *rows*, but each row already holds a number of crimes. Add up the `crimes` column with `sum()` instead.")
+  }
+  if (!is.data.frame(.result) || nrow(.result) == 0) {
+    fail("Your code should return a table of crimes and their totals.")
+  }
+  top <- .solution[1, ]
+  first_row <- as.character(unlist(.result[1, ]))
+  if (!(top$offense %in% first_row)) {
+    fail("The most common crime should be in the first row. Did you `arrange(desc(...))` by the total?")
+  }
+  pass_with_tip("Yes: {top$offense} is the most common crime in the data.", .user_code)
+})
+```
+
+## Question 3
+
+Which crime, in a particular month, had the highest clearance rate?
+
+```{webr}
+#| exercise: ex_top_rate
+```
+
+::: {.hint exercise="ex_top_rate"}
+Sort the rows by `rate`, highest first.
+:::
+
+::: {.solution exercise="ex_top_rate"}
+```{webr}
+#| exercise: ex_top_rate
+#| solution: true
+crime |> arrange(desc(rate))
+```
+:::
+
+```{webr}
+#| exercise: ex_top_rate
+#| check: true
+gradethis::grade_this({
+  if (!is.data.frame(.result) || !"rate" %in% names(.result) || nrow(.result) == 0) {
+    fail("Return rows of the data that include the `rate` column.")
+  }
+  if (!isTRUE(.result$rate[1] == max(crime$rate, na.rm = TRUE))) {
+    fail("The top row should have the highest rate. Did you use `desc()` inside `arrange()`?")
+  }
+  pass_with_tip("That's the highest clearance rate in the data.", .user_code)
+})
+```
+
+## Question 4
+
+Show **all** the rows that had this highest clearance rate. What do you notice about these crimes?
+
+```{webr}
+#| exercise: ex_all_top_rate
+```
+
+::: {.hint exercise="ex_all_top_rate"}
+`filter()` for rows where `rate` equals `max(rate)`. If you get zero rows, check for missing values: `max(rate, na.rm = TRUE)`.
+:::
+
+::: {.solution exercise="ex_all_top_rate"}
+```{webr}
+#| exercise: ex_all_top_rate
+#| solution: true
+crime |> filter(rate == max(rate, na.rm = TRUE))
+```
+:::
+
+```{webr}
+#| exercise: ex_all_top_rate
+#| check: true
+gradethis::grade_this({
+  if (!is.data.frame(.result)) {
+    fail("Return the rows of `crime` that have the highest rate.")
+  }
+  if (nrow(.result) == 0) {
+    fail("You got zero rows. If `rate` has missing values, `max(rate)` is `NA`; try `max(rate, na.rm = TRUE)`.")
+  }
+  if (nrow(.result) != nrow(.solution)) {
+    fail("You have {nrow(.result)} rows, but {nrow(.solution)} rows share the highest rate. Use `filter()` rather than typing the number in or taking the top few.")
+  }
+  if (grepl("rate\\s*==\\s*[0-9]", .user_code)) {
+    pass("Correct rows! Tip: `max(rate, na.rm = TRUE)` is safer than typing the number, because it still works if the data changes.")
+  }
+  pass_with_tip("All {nrow(.solution)} rows. Look at their `crimes` counts: what do they have in common?", .user_code)
+})
+```
+
+::: {.callout-note appearance="simple"}
+**Your notes:** What do you notice about these crimes?
+:::
+
+## Question 5
+
+For each year in the data, calculate the total number of crimes. What do you notice about the trend?
+
+```{webr}
+#| exercise: ex_yearly
+```
+
+::: {.hint exercise="ex_yearly"}
+`group_by(year)`, then `summarise()` the `crimes` column with `sum()`.
+:::
+
+::: {.solution exercise="ex_yearly"}
+```{webr}
+#| exercise: ex_yearly
+#| solution: true
+crime |>
+  group_by(year) |>
+  summarise(total = sum(crimes))
+```
+:::
+
+```{webr}
+#| exercise: ex_yearly
+#| check: true
+gradethis::grade_this({
+  if (grepl("\\b(count|n|tally)\\(", .user_code)) {
+    fail("`count()` and `n()` count rows, not crimes. Use `sum(crimes)` inside `summarise()`.")
+  }
+  if (!has_values(.result, .solution$total)) {
+    fail("Your output should have one row per year with the total crimes. Check that you grouped by `year` and used `sum(crimes)`.")
+  }
+  pass_with_tip("Those are the yearly totals. Watch out for a partial year at the end of the data before you describe a trend.", .user_code)
+})
+```
+
+::: {.callout-note appearance="simple"}
+**Your notes:** What do you notice about the trend?
+:::
+
+## Question 6
+
+For each year, calculate the total number of crimes that are "Crimes Against Person." What do you notice about this trend?
+
+```{webr}
+#| exercise: ex_person
+```
+
+::: {.hint exercise="ex_person"}
+Start from your Question 5 code, and add a `filter()` step before grouping.
+:::
+
+::: {.solution exercise="ex_person"}
+```{webr}
+#| exercise: ex_person
+#| solution: true
+crime |>
+  filter(category == "Crimes Against Person") |>
+  group_by(year) |>
+  summarise(total = sum(crimes))
+```
+:::
+
+```{webr}
+#| exercise: ex_person
+#| check: true
+gradethis::grade_this({
+  all_years <- crime |> group_by(year) |> summarise(total = sum(crimes))
+  if (has_values(.result, all_years$total)) {
+    fail("Those are totals for all crimes. Add a `filter()` step to keep only \"Crimes Against Person\".")
+  }
+  if (is.data.frame(.result) && nrow(.result) == 0) {
+    fail("Your filter matched no rows. Check the exact spelling and capitalization with `distinct(crime, category)`.")
+  }
+  if (!has_values(.result, .solution$total)) {
+    fail("Not quite. Filter for \"Crimes Against Person\", then group by `year` and `sum(crimes)`.")
+  }
+  pass_with_tip("Right. Compare this trend to the overall one from Question 5.", .user_code)
+})
+```
+
+::: {.callout-note appearance="simple"}
+**Your notes:** What do you notice about this trend?
+:::
